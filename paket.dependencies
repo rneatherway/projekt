@@ -6,3 +6,5 @@ nuget NUnit.Runners
 nuget FAKE
 nuget SourceLink.Fake
 nuget UnionArgParser
+
+github fsharp/FAKE modules/Octokit/Octokit.fsx

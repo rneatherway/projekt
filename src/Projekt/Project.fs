@@ -4,7 +4,6 @@ open System
 open System.IO
 open System.Xml.Linq
 
-let xns s = XNamespace.Get s
 let msbuildns = "{http://schemas.microsoft.com/developer/msbuild/2003}"
 let xname s = XName.Get s
 
@@ -132,52 +131,50 @@ let addReference project reference =
         return! addProjRefNode relPath name guid proj }
 
 let addFile (project: string) (file: string) (link: Option<string>) : Result<XElement> =
-    let proj = XElement.Load project
+    match load project with
+    | Failure x -> Failure x
+    | Success p ->
+
+    let proj = p
+
+    let addFileToProject relpath =
+        if hasCompileWithInclude relpath proj then
+            Failure (sprintf "File '%s' already exists in project." relpath)
+        else
+            let linkOpt = match link with
+                          | None -> []
+                          | Some l -> [xe "Link" l :> obj]
+            let fileRef = xa "Include" relpath :> obj :: linkOpt
+            let fileEntry = xe ("Compile") fileRef
+            let insertionPoint =
+              List.pick (fun f -> f proj)
+                [ parentOfDescendant "Compile"
+                  parentOfDescendant "None"
+                  Some ]
+            insertionPoint.Add (xe "ItemGroup" fileEntry)
+            Success proj
+
     let relpath = makeRelativePath project file
-
-    // TODO: Check whether relpath is already found in the project
-
     if link.IsNone &&
         Path.GetDirectoryName project <> Path.GetDirectoryName file
     then
         // We would copy 'file' to adjacent to the project
         let target = Path.GetDirectoryName project </> Path.GetFileName file
         if not (File.Exists file) then
-            Failure "Without the '--link' option, the file to be added must be adjacent to the project file."
+            Failure (sprintf "File '%s' not found." file)
         elif File.Exists file &&
             File.Exists target
         then
             Failure (sprintf "Target file '%s' already present." target)
         else
-          // TODO: Copy over or create the file
-          Failure "not implemented"
+            if File.Exists file then
+                File.Copy(file, target)
+            else
+                (File.Create target).Close()
+
+            addFileToProject (Path.GetFileName file)
     else
-    // Continue
-      
-    
-    let relpath =
-      if link.IsNone then
-        let target = IO.Path.GetDirectoryName project </> IO.Path.GetFileName file
-        if not (IO.File.Exists(target)) then
-          IO.File.Copy(file, target)
-        IO.Path.GetFileName file
-      else
-        makeRelativePath project file
-    if hasCompileWithInclude relpath proj then
-      Success proj
-    else
-      let linkOpt = match link with
-                    | None -> []
-                    | Some l -> [xe "Link" l :> obj]
-      let fileRef = xa "Include" relpath :> obj :: linkOpt
-      let fileEntry = xe ("Compile") fileRef
-      let insertionPoint =
-        List.pick (fun f -> f proj)
-          [ parentOfDescendant "Compile"
-            parentOfDescendant "None"
-            Some ]
-      insertionPoint.Add (xe "ItemGroup" fileEntry)
-      Success proj
+        addFileToProject relpath
 
 let delFile (project: string) (file: string) =
     let proj = XElement.Load project
