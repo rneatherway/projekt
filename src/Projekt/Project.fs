@@ -1,6 +1,7 @@
 module Projekt.Project
 
 open System
+open System.IO
 open System.Xml.Linq
 
 let xns s = XNamespace.Get s
@@ -120,7 +121,7 @@ let private load (path : string) =
 
 let addReference project reference =
     result {
-        let relPath = Projekt.Util.makeRelativePath project reference
+        let relPath = makeRelativePath project reference
         let! proj = load project
         let! reference = load reference
         let! name = 
@@ -130,8 +131,30 @@ let addReference project reference =
         let! guid = projectGuid reference
         return! addProjRefNode relPath name guid proj }
 
-let addFile (project: string) (file: string) (link: Option<string>) =
+let addFile (project: string) (file: string) (link: Option<string>) : Result<XElement> =
     let proj = XElement.Load project
+    let relpath = makeRelativePath project file
+
+    // TODO: Check whether relpath is already found in the project
+
+    if link.IsNone &&
+        Path.GetDirectoryName project <> Path.GetDirectoryName file
+    then
+        // We would copy 'file' to adjacent to the project
+        let target = Path.GetDirectoryName project </> Path.GetFileName file
+        if not (File.Exists file) then
+            Failure "Without the '--link' option, the file to be added must be adjacent to the project file."
+        elif File.Exists file &&
+            File.Exists target
+        then
+            Failure (sprintf "Target file '%s' already present." target)
+        else
+          // TODO: Copy over or create the file
+          Failure "not implemented"
+    else
+    // Continue
+      
+    
     let relpath =
       if link.IsNone then
         let target = IO.Path.GetDirectoryName project </> IO.Path.GetFileName file
@@ -141,7 +164,7 @@ let addFile (project: string) (file: string) (link: Option<string>) =
       else
         makeRelativePath project file
     if hasCompileWithInclude relpath proj then
-      proj
+      Success proj
     else
       let linkOpt = match link with
                     | None -> []
@@ -154,13 +177,13 @@ let addFile (project: string) (file: string) (link: Option<string>) =
             parentOfDescendant "None"
             Some ]
       insertionPoint.Add (xe "ItemGroup" fileEntry)
-      proj
+      Success proj
 
 let delFile (project: string) (file: string) =
     let proj = XElement.Load project
     let relpath = makeRelativePath project file
     match proj with
     | (Descendant "Compile" (Attribute "Include" a) as e)
-        when a.Value = relpath -> e.Remove()
-    | _ -> ()
-    proj
+        when a.Value = relpath -> e.Remove(); Success proj
+    | _ -> Failure (sprintf "File '%s' not found in project." relpath)
+
