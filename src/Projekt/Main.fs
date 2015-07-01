@@ -4,6 +4,8 @@ open System
 
 [<EntryPoint>]
 let main argv =
+    printfn "%A" (System.Environment.GetCommandLineArgs().[0])
+    exit 0
     let op = 
         match Args.parse argv with
         | Success op -> op 
