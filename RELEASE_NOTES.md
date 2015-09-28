@@ -1,3 +1,6 @@
+#### 0.0.3 - 28-09-2015
+* Add `listfiles` command - https://github.com/fsprojects/Projekt/pull/33
+
 #### 0.0.2 - 12-07-2015
 * Fix template dir search - https://github.com/fsprojects/Projekt/pull/30
 
