@@ -1,3 +1,7 @@
+#### 0.0.4 - 20-02-2016
+* Do not CopyLocal FSharp.Core for libraries -
+  https://github.com/fsprojects/Projekt/pull/35
+
 #### 0.0.3 - 28-09-2015
 * Add `listfiles` command - https://github.com/fsprojects/Projekt/pull/33
 
